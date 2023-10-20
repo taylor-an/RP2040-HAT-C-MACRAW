@@ -68,6 +68,7 @@ typedef struct {
 	uint8_t zero;
 	uint8_t protocol;
 	uint16_t udp_length;
+    udp_header ps_udp;
 } __attribute__ ((packed)) pseudo_header;
 
 /* MACRAW example */
@@ -83,9 +84,9 @@ void get_ip(uint8_t* src_ip, uint8_t* dst_ip, uint8_t* buf);
 uint8_t get_ip_header_len(uint8_t* buf);
 uint8_t get_protocol(uint8_t* buf);
 void copy_swap(uint8_t* src, uint8_t* dst, uint32_t len);
-#if 0
-uint16_t checksum(packet_macraw* buf, uint8_t* data, uint16_t len);\
-uint32_t calculate_checksum(uint16_t* buf, uint32_t size);
+#if 1
+uint16_t checksum(packet_macraw* buf, uint8_t* data, uint16_t len);
+uint16_t calculate_checksum(unsigned char *ptr, int nbytes);
 #endif
 
 #ifdef __cplusplus
