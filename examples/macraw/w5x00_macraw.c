@@ -222,8 +222,14 @@ int main()
                 while (1)
                     ;
             }
-
+#if 1
+            if(retval != DHCP_IP_LEASED)
+            {
+                wizchip_delay_ms(1000); // wait for 1 second    
+            }
+#else
             wizchip_delay_ms(1000); // wait for 1 second
+#endif
         }
 
         /* Get IP through DNS */

@@ -399,11 +399,20 @@ bool packet_parser(wiz_NetInfo net_info, packet_macraw* pk, uint8_t* buf)
   }
   printf("\r\n\r\n");
 
-#if 0
-  uint16_t csum_temp = pk->raw_udp_header.checksum;
-  pk->raw_udp_header.checksum = 0;
-  checksum(&pk, &buf[nextp], data_len);
-  pk->raw_udp_header.checksum = csum_temp;
+#if 1
+  // 20231020 taylor
+  uint16_t csum_temp;
+  csum_temp = checksum(pk, &buf[nextp], data_len);
+  if(pk->raw_udp_header.checksum != csum_temp)
+  {
+    printf("Checksum incorrect\r\n");
+  }
+  else
+  {
+    printf("Checksum correct\r\n");
+  }
+  printf("Recevied Checksum = 0x%.4x\r\n", pk->raw_udp_header.checksum);
+  printf("Calculated Checksum = 0x%.4x\r\n\r\n", csum_temp);
 #endif
 }
 
@@ -423,7 +432,7 @@ void copy_swap(uint8_t* src, uint8_t* dst, uint32_t len)
   #endif
 }
 
-#if 0
+#if 1
 
 uint16_t checksum(packet_macraw* buf, uint8_t* data, uint16_t len)
 {
@@ -444,51 +453,58 @@ uint16_t checksum(packet_macraw* buf, uint8_t* data, uint16_t len)
   psh.zero = 0;
   psh.protocol = 17;
 
-  psh.udp_length = buf->raw_udp_header.length;
+  copy_swap((uint8_t*)&(buf->raw_udp_header.length), (uint8_t*)&psh.udp_length, 2);
 
-  sum = calculate_checksum((uint16_t*)&psh, sizeof(pseudo_header));
+#if 1
+  sum = calculate_checksum((uint8_t*)&psh, sizeof(pseudo_header)-sizeof(udp_header));
 
-  sum += calculate_checksum((uint16_t*)(&buf->raw_udp_header), sizeof(udp_header));
+  copy_swap((uint8_t*)&(buf->raw_udp_header.src_port), &psh.ps_udp.src_port, 2);
+  copy_swap((uint8_t*)&(buf->raw_udp_header.dst_port), &psh.ps_udp.dst_port, 2);
+  copy_swap((uint8_t*)&(buf->raw_udp_header.length), &psh.ps_udp.length, 2);
+  psh.ps_udp.checksum = 0;
 
-#if 0
+  sum += calculate_checksum((uint8_t*)(&psh.ps_udp), sizeof(udp_header));
+
   if (total_length & 1)
   {  // Check if length is odd
-        total_length++;  // Increment length to account for the extra byte
-        data[total_length - 1] = 0;  // Pad with a zero byte
+    total_length++;  // Increment length to account for the extra byte
+    data[total_length - 1] = 0;  // Pad with a zero byte
   }
+
+  sum += calculate_checksum((uint8_t*)data, len);
+
+  sum = (sum >> 16) + (sum & 0xffff);
+  sum = sum + (sum >> 16);
+  sum = ~sum;
+
+  //printf("Calculated Checksum = 0x%.4x\r\n\r\n", (uint16_t)sum);
 #endif
-  sum += calculate_checksum((uint16_t *)data, len);
-
-  // Handle carry-over
-  while (sum >> 16) {
-      sum = (sum & 0xFFFF) + (sum >> 16);
-  }
-
-  printf("checksum = %04x\r\n", sum);
-
-  sum = (uint16_t)(~sum);
-
-  printf("checksum = %04x\r\n", sum);
 
   return sum;
 }
 
-uint32_t calculate_checksum(uint16_t* buf, uint32_t size)
+uint16_t calculate_checksum(unsigned char *ptr, int nbytes)
 {
-    uint32_t cksum = 0;
-    while (size > 1) {
-        cksum += *buf++;
-        size -= 2;
-    }
-    if (size) {
-        cksum += *(uint8_t *)buf;
-    }
-    #if 0
-    cksum = (cksum >> 16) + (cksum & 0xffff);
-    cksum += (cksum >> 16);
-    return (uint16_t)(~cksum);
-    #else
-    return cksum;
-    #endif
+  uint32_t sum;
+  uint16_t temp;
+
+  sum = 0;
+  while (nbytes > 1)
+  {
+    temp = (uint16_t)(*ptr<<8)+*(ptr+1);
+    sum += temp;
+    ptr += 2;
+    nbytes -= 2;
+  }
+  if (nbytes == 1)
+  {
+    temp = (uint16_t)(*ptr<<8);
+    sum += temp;
+  }
+
+  sum = (sum >> 16) + (sum & 0xffff);
+  sum = sum + (sum >> 16);
+
+  return (uint16_t)sum;
 }
 #endif
